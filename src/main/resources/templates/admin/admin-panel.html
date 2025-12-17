@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Management Page</title>
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" th:href="@{/css/auction.css}">
+    <link rel="stylesheet" th:href="@{/css/kamco.css}">
+    
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            font-family: 'Nanum Gothic', 'Malgun Gothic', sans-serif;
+            background: #f5f5f5;
+        }
+
+        body {
+            padding: 20px;
+        }
+        
+        .button-bar {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            background: #f9f9f9;
+        }
+        
+        .button-bar button {
+            padding: 8px 15px;
+            cursor: pointer;
+            border: 1px solid #666;
+            background: white;
+            font-size: 14px;
+        }
+        
+        .button-bar button:hover {
+            background: #f0f0f0;
+        }
+        
+        .content-area {
+            border: 1px solid #ddd;
+            padding: 20px;
+            min-height: 400px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 13px;
+            border-radius: 0;
+        }
+        
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+            white-space: nowrap;
+            border-radius: 0;
+        }
+        
+        th {
+            background: #f0f0f0;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        pre {
+            background: #f5f5f5;
+            padding: 10px;
+            overflow-x: auto;
+            border: 1px solid #ddd;
+        }
+        
+        .member-actions button {
+            margin-right: 5px;
+            padding: 4px 8px;
+            font-size: 12px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+    </style>
+</head>
+<body>
+
+<!-- =================== 헤더 =================== -->
+<div th:replace="~{layout/header :: header}"></div>
+    <h1>Admin Management Panel</h1>
+    
+    <!-- 상단 버튼 바 -->
+    <div class="button-bar">		
+        <button onclick="unionNewItemsList()">API 신물건조회</button>
+        <button onclick="unionDiscountItemsList()">API 감가50%조회</button>
+        <button onclick="unionUsageItemsList()">API 용도별통합조회</button>
+		
+        <button onclick="itemNewItemsList()">DB신물건조회</button>
+        <button onclick="itemDiscountItemsList()">DB 감가50%조회</button>
+        <button onclick="itemUsageItemsList()">DB 용도별통합조회</button>
+
+        <button onclick="saveNewItemsToDb()">신물건DB저장</button>
+        <button onclick="saveDiscountItemsToDb()">감가50%물건DB저장</button>
+        <button onclick="saveUsageItemsToDb()">용도별통합물건DB저장</button>
+        
+        <button onclick="deleteNewItemsFromDb()">신물건DB삭제</button>
+        <button onclick="deleteDiscountItemsFromDb()">감가50%물건DB삭제</button>
+        <button onclick="deleteUsageItemsFromDb()">용도별통합물건DB삭제</button>
+		
+        <button onclick="memberList()">회원목록</button>
+        <button onclick="boardList()">게시글목록</button>
+    </div>
+    
+    <!-- 하단 내용 표시 영역 -->
+    <div class="content-area" id="contentArea">
+        <p style="color: #999;">버튼을 클릭하면 여기에 내용이 표시됩니다.</p>
+    </div>
+
+    <script>
+        const API_BASE = '/api/admin';
+        
+        // 신물건 DB 저장 (ItemRestController를 통한 처리)
+        function saveNewItemsToDb() {
+            if (!confirm('신물건을 DB에 저장하시겠습니까?\n\nItemRestController를 통해 ApiService로 여러 페이지에서 데이터를 가져와 저장합니다. 시간이 걸릴 수 있습니다.')) return;
+            
+            let html = '<h2>신물건 DB 저장</h2>';
+            html += '<div id="saveNewItemsResultArea" style="margin-top:20px;">';
+            html += '<p style="color:#27ae60; font-weight:bold;">✨ 신물건 저장 중...</p>';
+            html += '<p>ItemRestController를 통해 ApiService로 API에서 신물건 데이터를 가져와 DB에 저장하고 있습니다.</p>';
+            html += '<p style="color:#666; font-size:12px;">진행 상황은 서버 로그를 확인하세요.</p>';
+            html += '</div>';
+            document.getElementById('contentArea').innerHTML = html;
+            
+            const startTime = Date.now();
+            
+            // ItemRestController를 통한 일괄 저장 엔드포인트 호출
+            fetch('/items/api/batch-save-new-items', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sido: '서울특별시'
+                })
+            })
+                .then(r => r.json())
+                .then(data => {
+                    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+                    const minutes = Math.floor(elapsed / 60);
+                    const seconds = (elapsed % 60).toFixed(1);
+                    const timeText = minutes > 0 ? minutes + '분 ' + seconds + '초' : elapsed + '초';
+                    
+                    let resultHtml = '<p style="color: green; font-weight:bold;">✅ 신물건 저장 완료! (소요 시간: ' + timeText + ')</p>';
+                    resultHtml += '<p style="color: green;">총 저장된 개수: ' + (data.savedCount || 0) + '건</p>';
+                    resultHtml += '<pre style="background:#f5f5f5; padding:10px; border-radius:5px; overflow:auto;">' + JSON.stringify(data, null, 2) + '</pre>';
+                    document.getElementById('saveNewItemsResultArea').innerHTML = resultHtml;
+                })
+                .catch(error => {
+                    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+                    document.getElementById('saveNewItemsResultArea').innerHTML = 
+                        '<p style="color: red; font-weight:bold;">❌ 신물건 저장 실패 (소요 시간: ' + elapsed + '초)</p>' +
+                        '<p style="color: red;">오류: ' + error.message + '</p>';
+                    console.error('신물건 저장 오류:', error);
+                });
+        }
+        
+        // 감가50%물건 DB 저장 (ItemRestController를 통한 처리)
+        function saveDiscountItemsToDb() {
+            if (!confirm('감가50%물건을 DB에 저장하시겠습니까?\n\nItemRestController를 통해 ApiService로 여러 페이지에서 데이터를 가져와 저장합니다. 시간이 걸릴 수 있습니다.')) return;
+            
+            let html = '<h2>감가50%물건 DB 저장</h2>';
+            html += '<div id="saveDiscountItemsResultArea" style="margin-top:20px;">';
+            html += '<p style="color:#e67e22; font-weight:bold;">💰 감가50%물건 저장 중...</p>';
+            html += '<p>ItemRestController를 통해 ApiService로 API에서 감가50%물건 데이터를 가져와 DB에 저장하고 있습니다.</p>';
+            html += '<p style="color:#666; font-size:12px;">진행 상황은 서버 로그를 확인하세요.</p>';
+            html += '</div>';
+            document.getElementById('contentArea').innerHTML = html;
+            
+            const startTime = Date.now();
+            
+            // ItemRestController를 통한 일괄 저장 엔드포인트 호출
+            fetch('/items/api/batch-save-discount-items', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sido: '서울특별시'
+                })
+            })
+                .then(r => r.json())
+                .then(data => {
+                    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+                    const minutes = Math.floor(elapsed / 60);
+                    const seconds = (elapsed % 60).toFixed(1);
+                    const timeText = minutes > 0 ? minutes + '분 ' + seconds + '초' : elapsed + '초';
+                    
+                    let resultHtml = '<p style="color: green; font-weight:bold;">✅ 감가50%물건 저장 완료! (소요 시간: ' + timeText + ')</p>';
+                    resultHtml += '<p style="color: green;">총 저장된 개수: ' + (data.savedCount || 0) + '건</p>';
+                    resultHtml += '<pre style="background:#f5f5f5; padding:10px; border-radius:5px; overflow:auto;">' + JSON.stringify(data, null, 2) + '</pre>';
+                    document.getElementById('saveDiscountItemsResultArea').innerHTML = resultHtml;
+                })
+                .catch(error => {
+                    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+                    document.getElementById('saveDiscountItemsResultArea').innerHTML = 
+                        '<p style="color: red; font-weight:bold;">❌ 감가50%물건 저장 실패 (소요 시간: ' + elapsed + '초)</p>' +
+                        '<p style="color: red;">오류: ' + error.message + '</p>';
+                    console.error('감가50%물건 저장 오류:', error);
+                });
+        }
+        
+        // 용도별통합물건 DB 저장 (ItemRestController를 통한 처리)
+        function saveUsageItemsToDb() {
+            if (!confirm('용도별통합물건을 DB에 저장하시겠습니까?\n\nItemRestController를 통해 ApiService로 여러 페이지에서 데이터를 가져와 저장합니다. 시간이 걸릴 수 있습니다.')) return;
+            
+            let html = '<h2>용도별통합물건 DB 저장</h2>';
+            html += '<div id="saveUsageItemsResultArea" style="margin-top:20px;">';
+            html += '<p style="color:#3498db; font-weight:bold;">📋 용도별통합물건 저장 중...</p>';
+            html += '<p>ItemRestController를 통해 ApiService로 API에서 용도별통합물건 데이터를 가져와 DB에 저장하고 있습니다.</p>';
+            html += '<p style="color:#666; font-size:12px;">진행 상황은 서버 로그를 확인하세요.</p>';
+            html += '</div>';
+            document.getElementById('contentArea').innerHTML = html;
+            
+            const startTime = Date.now();
+            
+            // ItemRestController를 통한 일괄 저장 엔드포인트 호출
+            fetch('/items/api/batch-save-usage-items', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sido: '서울특별시'
+                })
+            })
+                .then(r => r.json())
+                .then(data => {
+                    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+                    const minutes = Math.floor(elapsed / 60);
+                    const seconds = (elapsed % 60).toFixed(1);
+                    const timeText = minutes > 0 ? minutes + '분 ' + seconds + '초' : elapsed + '초';
+                    
+                    let resultHtml = '<p style="color: green; font-weight:bold;">✅ 용도별통합물건 저장 완료! (소요 시간: ' + timeText + ')</p>';
+                    resultHtml += '<p style="color: green;">총 저장된 개수: ' + (data.savedCount || 0) + '건</p>';
+                    resultHtml += '<pre style="background:#f5f5f5; padding:10px; border-radius:5px; overflow:auto;">' + JSON.stringify(data, null, 2) + '</pre>';
+                    document.getElementById('saveUsageItemsResultArea').innerHTML = resultHtml;
+                })
+                .catch(error => {
+                    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+                    document.getElementById('saveUsageItemsResultArea').innerHTML = 
+                        '<p style="color: red; font-weight:bold;">❌ 용도별통합물건 저장 실패 (소요 시간: ' + elapsed + '초)</p>' +
+                        '<p style="color: red;">오류: ' + error.message + '</p>';
+                    console.error('용도별통합물건 저장 오류:', error);
+                });
+        }
+        
+        // Union 패키지 기능 (200건씩 페이지네이션)
+        const UNION_PAGE_SIZE = 200;
+        
+        // Union 신물건 조회 - 원본 API 응답 표시
+        function unionNewItemsList(page = 1) {
+            showLoading();
+            
+            // ApiService에서 직접 원본 API 호출
+            fetch(API_BASE + '/api-raw/new-items?page=' + page + '&sido=서울특별시')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success && data.xmlResponse) {
+                        renderRawApiResponse(page, data.xmlResponse, '신물건 원본 API 응답', 'unionNewItemsList');
+                            } else {
+                        document.getElementById('contentArea').innerHTML = 
+                            '<h2>Union 신물건 조회</h2><p style="color: red;">오류: ' + (data.message || '알 수 없는 오류') + '</p>';
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('contentArea').innerHTML = 
+                        '<h2>Union 신물건 조회</h2><p style="color: red;">오류: ' + error.message + '</p>';
+                });
+        }
+        
+        // Union 감가 50% 이상 조회 - 원본 API 응답 표시
+        function unionDiscountItemsList(page = 1) {
+            showLoading();
+            
+            // ApiService에서 직접 원본 API 호출
+            fetch(API_BASE + '/api-raw/discount-items?page=' + page + '&sido=서울특별시')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success && data.xmlResponse) {
+                        renderRawApiResponse(page, data.xmlResponse, '감가 50% 이상 원본 API 응답', 'unionDiscountItemsList');
+                            } else {
+                        document.getElementById('contentArea').innerHTML = 
+                            '<h2>Union 감가 50% 이상 조회</h2><p style="color: red;">오류: ' + (data.message || '알 수 없는 오류') + '</p>';
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('contentArea').innerHTML = 
+                        '<h2>Union 감가 50% 이상 조회</h2><p style="color: red;">오류: ' + error.message + '</p>';
+                });
+        }
+        
+        // Union 용도별 통합 조회 - 원본 API 응답 표시
+        function unionUsageItemsList(page = 1) {
+            showLoading();
+            
+            // ApiService에서 직접 원본 API 호출
+            fetch(API_BASE + '/api-raw/usage-items?page=' + page + '&sido=서울특별시')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success && data.xmlResponse) {
+                        renderRawApiResponse(page, data.xmlResponse, '용도별 통합 원본 API 응답', 'unionUsageItemsList');
+                    } else {
+                        document.getElementById('contentArea').innerHTML = 
+                            '<h2>Union 용도별 통합 조회</h2><p style="color: red;">오류: ' + (data.message || '알 수 없는 오류') + '</p>';
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('contentArea').innerHTML = 
+                        '<h2>Union 용도별 통합 조회</h2><p style="color: red;">오류: ' + error.message + '</p>';
+                });
+        }
+        
+        // 원본 API 응답 렌더링 함수
+        function renderRawApiResponse(page, xmlResponse, title, functionName) {
+            let html = '<h2>' + title + '</h2>';
+            html += '<p style="color: #666; font-size: 14px;">페이지: ' + page + ' | ApiService에서 직접 호출한 원본 XML 응답</p>';
+            
+            // XML을 보기 좋게 포맷팅 (간단한 처리)
+            let formattedXml = xmlResponse;
+            try {
+                // XML을 보기 좋게 포맷팅 시도
+                formattedXml = formatXml(xmlResponse);
+            } catch (e) {
+                // 포맷팅 실패 시 원본 그대로 표시
+                formattedXml = xmlResponse;
+            }
+            
+            html += '<div style="margin: 20px 0;">';
+            html += '<button onclick="' + functionName + '(' + (page - 1) + ')" style="padding: 8px 15px; margin: 5px; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer;">이전 페이지</button>';
+            html += '<button onclick="' + functionName + '(' + (page + 1) + ')" style="padding: 8px 15px; margin: 5px; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer;">다음 페이지</button>';
+            html += '<span style="margin-left: 20px; color: #666;">현재 페이지: ' + page + '</span>';
+            html += '</div>';
+            
+            html += '<div style="background: #f5f5f5; padding: 15px; border-radius: 5px; overflow-x: auto; max-height: 800px; overflow-y: auto; border: 1px solid #ddd;">';
+            html += '<pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word; font-family: \'Courier New\', monospace; font-size: 12px;">';
+            html += escapeHtml(formattedXml);
+            html += '</pre>';
+                    html += '</div>';
+            
+            document.getElementById('contentArea').innerHTML = html;
+        }
+        
+        // XML 포맷팅 함수 (간단한 버전)
+        function formatXml(xml) {
+            let formatted = '';
+            let indent = 0;
+            const tab = '  ';
+            
+            xml.split(/>\s*</).forEach(function(node) {
+                if (node.match(/^\/\w/)) indent--;
+                formatted += tab.repeat(indent < 0 ? 0 : indent) + '<' + node + '>\r\n';
+                if (node.match(/^<?\w[^>]*[^\/]$/) && !node.startsWith('input')) indent++;
+            });
+            
+            return formatted.substring(1, formatted.length - 2);
+        }
+        
+        // HTML 이스케이프 함수
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+        }
+        
+        // Union 목록 테이블 렌더링 (공통 함수)
+        function renderUnionListTable(page, pageItems, totalCount, title, pageSize, functionName) {
+            const totalPages = Math.ceil(totalCount / pageSize);
+            
+            let html = '<h2>' + title + '</h2>';
+            html += '<p>페이지당 ' + pageSize + '개 - Union API에서 가져온 데이터</p>';
+            html += '<button onclick="saveUnionPage(\'' + functionName + '\', ' + page + ')" style="padding: 8px 15px; margin: 5px; background: #27ae60; color: white; border: none; border-radius: 5px; cursor: pointer;">현재 페이지 DB 저장</button>';
+            
+            if (pageItems && pageItems.length > 0) {
+                html += '<div style="overflow-x: auto;">';
+                html += '<table><thead><tr>';
+                html += '<th>순번</th><th>물건번호</th><th>입찰번호</th><th>기관명</th><th>집행기관번호</th>';
+                html += '<th>소재지</th><th>지번주소</th><th>도로명</th><th>건물번호</th>';
+                html += '<th>물건명</th><th>자산구분</th>';
+                html += '<th>최저입찰가</th><th>감정평가액</th>';
+                html += '<th>입찰시작</th><th>입찰종료</th><th>입찰회차</th><th>입찰횟수</th>';
+                html += '<th>처분방식</th><th>입찰방식</th><th>수수료율</th>';
+                html += '<th>상태</th><th>조회수</th>';
+                html += '</tr></thead><tbody>';
+                
+                pageItems.forEach((item, index) => {
+                    html += '<tr>';
+                    const displayRnum = (page - 1) * pageSize + index + 1;
+                    html += '<td>' + displayRnum + '</td>';
+                    html += '<td>' + (item.plnmNo || '-') + '</td>';
+                    html += '<td>' + (item.pbctNo || '-') + '</td>';
+                    html += '<td>' + (item.orgName || '-') + '</td>';
+                    html += '<td>' + (item.orgBaseNo || '-') + '</td>';
+                    html += '<td style="max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + (item.address || '-') + '</td>';
+                    html += '<td style="max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + (item.nmrAddress || '-') + '</td>';
+                    html += '<td style="max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + (item.roadName || '-') + '</td>';
+                    html += '<td>' + (item.bldNo || '-') + '</td>';
+                    html += '<td style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + (item.goodsDetail || '-') + '</td>';
+                    html += '<td>' + (item.assetCategory || '-') + '</td>';
+                    const minBidPrice = item.minBidPriceMax || item.minBidPriceMin;
+                    html += '<td style="text-align:right;">' + (minBidPrice ? minBidPrice.toLocaleString() + '원' : '-') + '</td>';
+                    const appraisalAmount = item.appraisalAmountMax || item.appraisalAmountMin;
+                    html += '<td style="text-align:right;">' + (appraisalAmount ? appraisalAmount.toLocaleString() + '원' : '-') + '</td>';
+                    html += '<td>' + formatDate2(item.bidStart) + '</td>';
+                    html += '<td>' + formatDate2(item.bidEnd) + '</td>';
+                    html += '<td>' + (item.bidRoundNo || '-') + '</td>';
+                    html += '<td style="text-align:center; font-weight:bold; color:#e74c3c;">' + (item.bidCount || 1) + '</td>';
+                    html += '<td>' + (item.disposalMethod || '-') + '</td>';
+                    html += '<td>' + (item.bidMethod || '-') + '</td>';
+                    html += '<td>' + (item.feeRate || '-') + '</td>';
+                    html += '<td>' + (item.bidStatus || '-') + '</td>';
+                    html += '<td>' + (item.viewCount || 0) + '</td>';
+                    html += '</tr>';
+                });
+                
+                html += '</tbody></table></div>';
+                
+                // 페이지네이션
+                if (totalPages > 1) {
+                    html += '<div style="margin-top: 20px; text-align: center;">';
+                    html += '<div style="display: inline-block;">';
+                    
+                    if (page > 1) {
+                        html += '<button onclick="' + functionName + '(' + (page - 1) + ')" style="padding: 8px 15px; margin: 0 5px;">이전</button>';
+                    }
+                    
+                    const startPage = Math.max(1, page - 5);
+                    const endPage = Math.min(totalPages, page + 5);
+                    
+                    if (startPage > 1) {
+                        html += '<button onclick="' + functionName + '(1)" style="padding: 8px 15px; margin: 0 2px;">1</button>';
+                        if (startPage > 2) html += '<span style="margin: 0 5px;">...</span>';
+                    }
+                    
+                    for (let i = startPage; i <= endPage; i++) {
+                        if (i === page) {
+                            html += '<button onclick="' + functionName + '(' + i + ')" style="padding: 8px 15px; margin: 0 2px; background: #004098; color: white; font-weight: bold;">' + i + '</button>';
+                        } else {
+                            html += '<button onclick="' + functionName + '(' + i + ')" style="padding: 8px 15px; margin: 0 2px;">' + i + '</button>';
+                        }
+                    }
+                    
+                    if (endPage < totalPages) {
+                        if (endPage < totalPages - 1) html += '<span style="margin: 0 5px;">...</span>';
+                        html += '<button onclick="' + functionName + '(' + totalPages + ')" style="padding: 8px 15px; margin: 0 2px;">' + totalPages + '</button>';
+                    }
+                    
+                    if (page < totalPages) {
+                        html += '<button onclick="' + functionName + '(' + (page + 1) + ')" style="padding: 8px 15px; margin: 0 5px;">다음</button>';
+                    }
+                    
+                    html += '</div>';
+                    html += '<p style="margin-top: 10px; color: #666;">페이지 ' + page + ' / ' + totalPages + '</p>';
+                    html += '</div>';
+                }
+            } else {
+                html += '<p>데이터 없음</p>';
+            }
+            
+            document.getElementById('contentArea').innerHTML = html;
+        }
+        
+        // Union 페이지 저장 함수
+        function saveUnionPage(functionName, page) {
+            let endpoint = '';
+            if (functionName === 'unionNewItemsList') {
+                endpoint = '/api/union/new-items/save';
+            } else if (functionName === 'unionDiscountItemsList') {
+                endpoint = '/api/union/discount-items/save';
+            } else if (functionName === 'unionUsageItemsList') {
+                endpoint = '/api/union/usage-items/save';
+            } else {
+                alert('알 수 없는 함수명입니다.');
+                return;
+            }
+            
+            if (!confirm('현재 페이지(' + page + '페이지)의 데이터를 DB에 저장하시겠습니까?')) return;
+            
+            fetch(endpoint + '?page=' + page + '&sido=서울특별시', {
+                method: 'POST'
+            })
+                .then(r => r.text())
+                .then(data => {
+                    alert(data);
+                    // 저장 후 목록 새로고침
+                    if (functionName === 'unionNewItemsList') {
+                        unionNewItemsList(page);
+                    } else if (functionName === 'unionDiscountItemsList') {
+                        unionDiscountItemsList(page);
+                    } else if (functionName === 'unionUsageItemsList') {
+                        unionUsageItemsList(page);
+                    }
+                })
+                .catch(error => {
+                    alert('저장 실패: ' + error.message);
+                });
+        }
+        
+        // Item 패키지 기능 (200건씩 페이지네이션) - Union과 동일
+        const ITEM_PAGE_SIZE = 200;
+        
+        // Item 신물건 조회 (ItemRestController를 통한 DB 조회)
+        function itemNewItemsList(page = 1) {
+            showLoading();
+            
+            // ItemRestController를 통해 DB에서 신규물건 조회
+            fetch('/items/db/new-items?page=' + page + '&size=' + ITEM_PAGE_SIZE)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                    const items = Array.isArray(data.items) ? data.items : (data.items || []);
+                        const totalCount = data.totalCount || 0;
+                    renderItemListTable(page, items, totalCount, 'DB 신물건 조회 (14일 이내)', ITEM_PAGE_SIZE, 'itemNewItemsList');
+                    } else {
+                        document.getElementById('contentArea').innerHTML = 
+                            '<h2>DB 신물건 조회</h2><p style="color: red;">오류: ' + (data.message || '알 수 없는 오류') + '</p>';
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('contentArea').innerHTML = 
+                        '<h2>DB 신물건 조회</h2><p style="color: red;">오류: ' + error.message + '</p>';
+                });
+        }
+        
+        // Item 감가 50% 이상 조회 (ItemRestController를 통한 DB 조회)
+        function itemDiscountItemsList(page = 1) {
+            showLoading();
+            
+            // ItemRestController를 통해 DB에서 감가50% 물건 조회
+            fetch('/items/db/discount-items?page=' + page + '&size=' + ITEM_PAGE_SIZE)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                    const items = Array.isArray(data.items) ? data.items : (data.items || []);
+                        const totalCount = data.totalCount || 0;
+                    renderItemListTable(page, items, totalCount, 'DB 감가 50% 이상 조회', ITEM_PAGE_SIZE, 'itemDiscountItemsList');
+                    } else {
+                        document.getElementById('contentArea').innerHTML = 
+                            '<h2>DB 감가 50% 이상 조회</h2><p style="color: red;">오류: ' + (data.message || '알 수 없는 오류') + '</p>';
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('contentArea').innerHTML = 
+                        '<h2>DB 감가 50% 이상 조회</h2><p style="color: red;">오류: ' + error.message + '</p>';
+                });
+        }
+        
+        // Item 용도별 통합 조회 (ItemRestController를 통한 DB 조회)
+        function itemUsageItemsList(page = 1) {
+            showLoading();
+            
+            // ItemRestController를 통해 DB에서 서울특별시 전체 물건 조회
+            fetch('/items/db/usage-items?page=' + page + '&size=' + ITEM_PAGE_SIZE)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                    const items = Array.isArray(data.items) ? data.items : (data.items || []);
+                        const totalCount = data.totalCount || 0;
+                    renderItemListTable(page, items, totalCount, 'DB 용도별 통합 조회 (서울특별시)', ITEM_PAGE_SIZE, 'itemUsageItemsList');
+                    } else {
+                        document.getElementById('contentArea').innerHTML = 
+                            '<h2>DB 용도별 통합 조회</h2><p style="color: red;">오류: ' + (data.message || '알 수 없는 오류') + '</p>';
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('contentArea').innerHTML = 
+                        '<h2>DB 용도별 통합 조회</h2><p style="color: red;">오류: ' + error.message + '</p>';
+                });
+        }
+        
+        // Item 목록 테이블 렌더링 (공통 함수) - Union과 동일한 구조
+        function renderItemListTable(page, pageItems, totalCount, title, pageSize, functionName) {
+            const totalPages = Math.ceil(totalCount / pageSize);
+            
+            let html = '<h2>' + title + '</h2>';
+            html += '<p style="font-size: 16px; font-weight: bold; color: #004098; margin-bottom: 10px;">';
+            html += '📊 총 ' + totalCount.toLocaleString() + '건 (페이지당 ' + pageSize + '개) - DB에 저장된 데이터';
+            html += '</p>';
+            
+            if (pageItems && pageItems.length > 0) {
+                html += '<div style="overflow-x: auto;">';
+                html += '<table><thead><tr>';
+                html += '<th>순번</th><th>물건번호</th><th>입찰번호</th><th>기관명</th><th>집행기관번호</th>';
+                html += '<th>소재지</th><th>지번주소</th><th>도로명</th><th>건물번호</th>';
+                html += '<th>물건명</th><th>자산구분</th>';
+                html += '<th>최저입찰가</th><th>감정평가액</th>';
+                html += '<th>입찰시작</th><th>입찰종료</th><th>입찰회차</th><th>입찰횟수</th>';
+                html += '<th>처분방식</th><th>입찰방식</th><th>수수료율</th>';
+                html += '<th>상태</th><th>조회수</th>';
+                html += '</tr></thead><tbody>';
+                
+                pageItems.forEach((item, index) => {
+                    html += '<tr>';
+                    const displayRnum = (page - 1) * pageSize + index + 1;
+                    html += '<td>' + displayRnum + '</td>';
+                    html += '<td>' + (item.plnmNo || '-') + '</td>';
+                    html += '<td>' + (item.pbctNo || '-') + '</td>';
+                    html += '<td>' + (item.orgName || '-') + '</td>';
+                    html += '<td>' + (item.orgBaseNo || '-') + '</td>';
+                    html += '<td style="max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + (item.address || '-') + '</td>';
+                    html += '<td style="max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + (item.nmrAddress || '-') + '</td>';
+                    html += '<td style="max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + (item.roadName || '-') + '</td>';
+                    html += '<td>' + (item.bldNo || '-') + '</td>';
+                    html += '<td style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + (item.goodsDetail || '-') + '</td>';
+                    html += '<td>' + (item.assetCategory || '-') + '</td>';
+                    const minBidPrice = item.minBidPriceMax || item.minBidPriceMin;
+                    html += '<td style="text-align:right;">' + (minBidPrice ? minBidPrice.toLocaleString() + '원' : '-') + '</td>';
+                    const appraisalAmount = item.appraisalAmountMax || item.appraisalAmountMin;
+                    html += '<td style="text-align:right;">' + (appraisalAmount ? appraisalAmount.toLocaleString() + '원' : '-') + '</td>';
+                    html += '<td>' + formatDate2(item.bidStart) + '</td>';
+                    html += '<td>' + formatDate2(item.bidEnd) + '</td>';
+                    html += '<td>' + (item.bidRoundNo || '-') + '</td>';
+                    html += '<td style="text-align:center; font-weight:bold; color:#e74c3c;">' + (item.bidCount || 1) + '</td>';
+                    html += '<td>' + (item.disposalMethod || '-') + '</td>';
+                    html += '<td>' + (item.bidMethod || '-') + '</td>';
+                    html += '<td>' + (item.feeRate || '-') + '</td>';
+                    html += '<td>' + (item.bidStatus || '-') + '</td>';
+                    html += '<td>' + (item.viewCount || 0) + '</td>';
+                    html += '</tr>';
+                });
+                
+                html += '</tbody></table></div>';
+                
+                // 페이지네이션
+                if (totalPages > 1) {
+                    html += '<div style="margin-top: 20px; text-align: center;">';
+                    html += '<div style="display: inline-block;">';
+                    
+                    if (page > 1) {
+                        html += '<button onclick="' + functionName + '(' + (page - 1) + ')" style="padding: 8px 15px; margin: 0 5px;">이전</button>';
+                    }
+                    
+                    const startPage = Math.max(1, page - 5);
+                    const endPage = Math.min(totalPages, page + 5);
+                    
+                    if (startPage > 1) {
+                        html += '<button onclick="' + functionName + '(1)" style="padding: 8px 15px; margin: 0 2px;">1</button>';
+                        if (startPage > 2) html += '<span style="margin: 0 5px;">...</span>';
+                    }
+                    
+                    for (let i = startPage; i <= endPage; i++) {
+                        if (i === page) {
+                            html += '<button onclick="' + functionName + '(' + i + ')" style="padding: 8px 15px; margin: 0 2px; background: #004098; color: white; font-weight: bold;">' + i + '</button>';
+                        } else {
+                            html += '<button onclick="' + functionName + '(' + i + ')" style="padding: 8px 15px; margin: 0 2px;">' + i + '</button>';
+                        }
+                    }
+                    
+                    if (endPage < totalPages) {
+                        if (endPage < totalPages - 1) html += '<span style="margin: 0 5px;">...</span>';
+                        html += '<button onclick="' + functionName + '(' + totalPages + ')" style="padding: 8px 15px; margin: 0 2px;">' + totalPages + '</button>';
+                    }
+                    
+                    if (page < totalPages) {
+                        html += '<button onclick="' + functionName + '(' + (page + 1) + ')" style="padding: 8px 15px; margin: 0 5px;">다음</button>';
+                    }
+                    
+                    html += '</div>';
+                    html += '<p style="margin-top: 10px; color: #666; font-size: 14px; font-weight: bold;">';
+                    html += '📄 현재 페이지: ' + page + ' / 전체 페이지: ' + totalPages + ' (총 ' + totalCount.toLocaleString() + '건)';
+                    html += '</p>';
+                    html += '</div>';
+                } else {
+                    // 페이지가 1개일 때도 총 건수 표시
+                    html += '<p style="margin-top: 10px; color: #666; font-size: 14px; font-weight: bold;">';
+                    html += '📄 전체 페이지: 1 (총 ' + totalCount.toLocaleString() + '건)';
+                    html += '</p>';
+                }
+            } else {
+                html += '<p style="color: #999; font-size: 14px;">데이터 없음 (총 0건)</p>';
+            }
+            
+            document.getElementById('contentArea').innerHTML = html;
+        }
+        
+        // Item 페이지 저장 함수
+        function saveItemPage(functionName, page) {
+            let endpoint = '';
+            if (functionName === 'itemNewItemsList') {
+                endpoint = '/items/api/new-items/save';
+            } else if (functionName === 'itemDiscountItemsList') {
+                endpoint = '/items/api/discount-items/save';
+            } else if (functionName === 'itemUsageItemsList') {
+                endpoint = '/items/api/usage-items/save';
+            } else {
+                alert('알 수 없는 함수명입니다.');
+                return;
+            }
+            
+            if (!confirm('현재 페이지(' + page + '페이지)의 데이터를 DB에 저장하시겠습니까?')) return;
+            
+            fetch(endpoint + '?page=' + page + '&sido=서울특별시', {
+                method: 'POST'
+            })
+                .then(r => r.text())
+                .then(data => {
+                    alert(data);
+                    // 저장 후 목록 새로고침
+                    if (functionName === 'itemNewItemsList') {
+                        itemNewItemsList(page);
+                    } else if (functionName === 'itemDiscountItemsList') {
+                        itemDiscountItemsList(page);
+                    } else if (functionName === 'itemUsageItemsList') {
+                        itemUsageItemsList(page);
+                    }
+                })
+                .catch(error => {
+                    alert('저장 실패: ' + error.message);
+                });
+        }
+        
+        // DB 삭제 - 신물건
+        // 신물건 DB 삭제 (ItemRestController를 통한 처리)
+        function deleteNewItemsFromDb() {
+            if (!confirm('신물건 데이터를 DB에서 삭제하시겠습니까?\n\nItemRestController를 통해 14일 이내 데이터를 삭제합니다.\n이 작업은 되돌릴 수 없습니다.')) return;
+            
+            let html = '<h2>신물건 DB 삭제</h2>';
+            html += '<div id="deleteNewItemsResultArea" style="margin-top:20px;">';
+            html += '<p style="color:#e74c3c; font-weight:bold;">🗑️ 신물건 삭제 중...</p>';
+            html += '<p>ItemRestController를 통해 신물건 데이터(14일 이내)를 DB에서 삭제하고 있습니다.</p>';
+            html += '</div>';
+            document.getElementById('contentArea').innerHTML = html;
+            
+            // ItemRestController를 통한 삭제 엔드포인트 호출
+            fetch('/items/db/delete-new-items', { method: 'DELETE' })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                    document.getElementById('deleteNewItemsResultArea').innerHTML = 
+                        '<p style="color: green; font-weight:bold;">✅ 신물건 삭제 완료!</p>' +
+                            '<p style="color: green;">삭제된 개수: ' + (data.affectedRows || 0) + '건</p>' +
+                            '<pre style="background:#f5f5f5; padding:10px; border-radius:5px; overflow:auto;">' + JSON.stringify(data, null, 2) + '</pre>';
+                    } else {
+                        document.getElementById('deleteNewItemsResultArea').innerHTML = 
+                            '<p style="color: red; font-weight:bold;">❌ 신물건 삭제 실패</p>' +
+                            '<p style="color: red;">오류: ' + (data.message || '알 수 없는 오류') + '</p>';
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('deleteNewItemsResultArea').innerHTML = 
+                        '<p style="color: red; font-weight:bold;">❌ 신물건 삭제 실패</p>' +
+                        '<p style="color: red;">오류: ' + error.message + '</p>';
+                });
+        }
+        
+        // 감가50%물건 DB 삭제 (ItemRestController를 통한 처리)
+        function deleteDiscountItemsFromDb() {
+            if (!confirm('감가50%물건 데이터를 DB에서 삭제하시겠습니까?\n\nItemRestController를 통해 감가 50% 이상 물건을 삭제합니다.\n이 작업은 되돌릴 수 없습니다.')) return;
+            
+            let html = '<h2>감가50%물건 DB 삭제</h2>';
+            html += '<div id="deleteDiscountItemsResultArea" style="margin-top:20px;">';
+            html += '<p style="color:#e74c3c; font-weight:bold;">🗑️ 감가50%물건 삭제 중...</p>';
+            html += '<p>ItemRestController를 통해 감가50%물건 데이터를 DB에서 삭제하고 있습니다.</p>';
+            html += '</div>';
+            document.getElementById('contentArea').innerHTML = html;
+            
+            // ItemRestController를 통한 삭제 엔드포인트 호출
+            fetch('/items/db/delete-discount-items', { method: 'DELETE' })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                    document.getElementById('deleteDiscountItemsResultArea').innerHTML = 
+                        '<p style="color: green; font-weight:bold;">✅ 감가50%물건 삭제 완료!</p>' +
+                            '<p style="color: green;">삭제된 개수: ' + (data.affectedRows || 0) + '건</p>' +
+                            '<pre style="background:#f5f5f5; padding:10px; border-radius:5px; overflow:auto;">' + JSON.stringify(data, null, 2) + '</pre>';
+                    } else {
+                        document.getElementById('deleteDiscountItemsResultArea').innerHTML = 
+                            '<p style="color: red; font-weight:bold;">❌ 감가50%물건 삭제 실패</p>' +
+                            '<p style="color: red;">오류: ' + (data.message || '알 수 없는 오류') + '</p>';
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('deleteDiscountItemsResultArea').innerHTML = 
+                        '<p style="color: red; font-weight:bold;">❌ 감가50%물건 삭제 실패</p>' +
+                        '<p style="color: red;">오류: ' + error.message + '</p>';
+                });
+        }
+        
+        // 용도별통합물건 DB 삭제 (ItemRestController를 통한 처리)
+        function deleteUsageItemsFromDb() {
+            if (!confirm('용도별통합물건 데이터를 DB에서 삭제하시겠습니까?\n\nItemRestController를 통해 서울특별시 전체 물건을 삭제합니다.\n이 작업은 되돌릴 수 없습니다.')) return;
+            
+            let html = '<h2>용도별통합물건 DB 삭제</h2>';
+            html += '<div id="deleteUsageItemsResultArea" style="margin-top:20px;">';
+            html += '<p style="color:#e74c3c; font-weight:bold;">🗑️ 용도별통합물건 삭제 중...</p>';
+            html += '<p>ItemRestController를 통해 용도별통합물건 데이터(서울특별시 전체)를 DB에서 삭제하고 있습니다.</p>';
+            html += '</div>';
+            document.getElementById('contentArea').innerHTML = html;
+            
+            // ItemRestController를 통한 삭제 엔드포인트 호출
+            fetch('/items/db/delete-usage-items', { method: 'DELETE' })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                    document.getElementById('deleteUsageItemsResultArea').innerHTML = 
+                        '<p style="color: green; font-weight:bold;">✅ 용도별통합물건 삭제 완료!</p>' +
+                            '<p style="color: green;">삭제된 개수: ' + (data.affectedRows || 0) + '건</p>' +
+                            '<pre style="background:#f5f5f5; padding:10px; border-radius:5px; overflow:auto;">' + JSON.stringify(data, null, 2) + '</pre>';
+                    } else {
+                        document.getElementById('deleteUsageItemsResultArea').innerHTML = 
+                            '<p style="color: red; font-weight:bold;">❌ 용도별통합물건 삭제 실패</p>' +
+                            '<p style="color: red;">오류: ' + (data.message || '알 수 없는 오류') + '</p>';
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('deleteUsageItemsResultArea').innerHTML = 
+                        '<p style="color: red; font-weight:bold;">❌ 용도별통합물건 삭제 실패</p>' +
+                        '<p style="color: red;">오류: ' + error.message + '</p>';
+                });
+        }
+        
+        // 회원 목록
+        function memberList() {
+            showLoading();
+            
+            // 서버에서 전체 데이터 가져오기
+            fetch(API_BASE + '/members/all')
+                .then(r => r.json())
+                .then(data => {
+                    const members = Array.isArray(data) ? data : [];
+                    renderMemberList(members);
+                })
+                .catch(error => {
+                    document.getElementById('contentArea').innerHTML = 
+                        '<h2>회원 목록</h2><p>오류: ' + error.message + '</p>';
+                });
+        }
+        
+        function renderMemberList(members) {
+                    let html = '<h2>회원 목록</h2>';
+            html += '<p>총 ' + members.length + '명</p>';
+                    
+            if (members && members.length > 0) {
+                        html += '<table><thead><tr>';
+                        html += '<th>ID</th><th>이름</th><th>이메일</th><th>가입일</th><th>관리</th>';
+                        html += '</tr></thead><tbody>';
+                        
+                members.forEach(member => {
+                            html += '<tr>';
+                            html += '<td>' + member.id + '</td>';
+                            html += '<td>' + member.name + '</td>';
+                            html += '<td>' + member.mail + '</td>';
+                            html += '<td>' + formatDate2(member.joinDate) + '</td>';
+                            html += '<td class="member-actions">';
+                            html += '<button onclick="editMember(\'' + member.id + '\')">수정</button>';
+                            html += '<button onclick="deleteMember(\'' + member.id + '\')">삭제</button>';
+                            html += '</td>';
+                            html += '</tr>';
+                        });
+                        
+                        html += '</tbody></table>';
+                    } else {
+                        html += '<p>회원이 없습니다.</p>';
+                    }
+                    
+                    document.getElementById('contentArea').innerHTML = html;
+        }
+        
+        function deleteMember(memberId) {
+            if (!confirm('회원 ' + memberId + '를 삭제하시겠습니까?')) return;
+            
+            fetch(API_BASE + '/members/' + memberId, {
+                method: 'DELETE'
+            })
+            .then(r => r.json())
+            .then(data => {
+                alert(data.message || '삭제 완료');
+                memberList(); // 목록 새로고침
+            })
+            .catch(err => {
+                alert('삭제 중 오류: ' + err.message);
+            });
+        }
+
+        function editMember(memberId) {
+            const newName = prompt('새 이름을 입력하세요 (비워두면 변경 안 함):');
+            const newEmail = prompt('새 이메일을 입력하세요 (비워두면 변경 안 함):');
+            const newPhone = prompt('새 전화번호를 입력하세요 (비워두면 변경 안 함):');
+
+            const payload = { memberId: memberId };
+            if (newName && newName.trim() !== '') payload.name = newName.trim();
+            if (newEmail && newEmail.trim() !== '') payload.mail = newEmail.trim();
+            if (newPhone && newPhone.trim() !== '') payload.phone = newPhone.trim();
+
+            if (Object.keys(payload).length === 1) {
+                alert('변경할 내용이 없습니다.');
+                return;
+            }
+
+            fetch(API_BASE + '/members/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(r => r.json())
+            .then(data => {
+                alert(data.message || '수정 완료');
+                memberList(); // 목록 새로고침
+            })
+            .catch(err => {
+                alert('수정 중 오류: ' + err.message);
+            });
+        }
+        
+        // 8. 게시글 목록 (클라이언트 사이드 페이지네이션)
+        function boardList() {
+            showLoading();
+            
+            // 서버에서 전체 데이터 가져오기
+            fetch(API_BASE + '/boards/all')
+                .then(r => r.json())
+                .then(data => {
+                    const boards = Array.isArray(data) ? data : [];
+                    renderBoardList(boards);
+                })
+                .catch(error => {
+                    document.getElementById('contentArea').innerHTML = 
+                        '<h2>게시글 목록</h2><p>오류: ' + error.message + '</p>';
+                });
+        }
+        
+        function renderBoardList(boards) {
+                    let html = '<h2>게시글 목록</h2>';
+            html += '<p>총 ' + boards.length + '개</p>';
+                    
+            if (boards && boards.length > 0) {
+                        html += '<table><thead><tr>';
+                        html += '<th>번호</th><th>제목</th><th>작성자</th><th>작성일</th><th>관리</th>';
+                        html += '</tr></thead><tbody>';
+                        
+                boards.forEach(board => {
+                            html += '<tr>';
+                            html += '<td>' + board.no + '</td>';
+                            html += '<td>' + board.title + '</td>';
+                            html += '<td>' + board.id + '</td>';
+                            html += '<td>' + formatDate2(board.regDate) + '</td>';
+                            html += '<td>';
+                            html += '<button onclick="deleteBoard(' + board.no + ')">삭제</button>';
+                            html += '</td>';
+                            html += '</tr>';
+                        });
+                        
+                        html += '</tbody></table>';
+                    } else {
+                        html += '<p>게시글이 없습니다.</p>';
+                    }
+                    
+                    document.getElementById('contentArea').innerHTML = html;
+        }
+
+        function deleteBoard(boardNo) {
+            if (!confirm('게시글 번호 ' + boardNo + '를 삭제하시겠습니까?')) return;
+
+            fetch(API_BASE + '/boards/' + boardNo, {
+                method: 'DELETE'
+            })
+            .then(r => r.json())
+            .then(data => {
+                alert(data.message || '삭제 완료');
+                boardList(); // 목록 새로고침
+            })
+            .catch(err => {
+                alert('삭제 중 오류: ' + err.message);
+            });
+        }
+        
+        // 유틸리티
+        function showLoading() {
+            document.getElementById('contentArea').innerHTML = 
+                '<div class="loading">로딩 중...</div>';
+        }
+        
+        function formatDate2(dateStr) {
+            if (!dateStr) return '-';
+            return new Date(dateStr).toLocaleString('ko-KR');
+        }
+    </script>
+
+<!-- =================== 푸터 =================== -->
+<div th:replace="~{layout/footer :: footer}"></div>
+
+</body>
+</html>

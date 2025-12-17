@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.api.payment.mapper.PaymentMapper">
+
+    <!-- ========== payment_base ResultMap ========== -->
+    <resultMap id="paymentBaseMap" type="com.api.payment.domain.PaymentBase">
+        <id property="id" column="id"/>
+        <result property="memberId" column="member_id"/>
+        <result property="itemId" column="item_id"/>
+        <result property="bidPrice" column="bid_price"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <!-- ========== payment_detail ResultMap ========== -->
+    <resultMap id="paymentDetailMap" type="com.api.payment.domain.PaymentDetail">
+        <id property="id" column="id"/>
+        <result property="paymentId" column="payment_id"/>
+        <result property="cltrNo" column="cltr_no"/>
+        <result property="amount" column="amount"/>
+        <result property="paidAmount" column="paid_amount"/>
+        <result property="impUid" column="imp_uid"/>
+        <result property="merchantUid" column="merchant_uid"/>
+        <result property="itemName" column="item_name"/>
+        <result property="paymentMethod" column="payment_method"/>
+        <result property="pgProvider" column="pg_provider"/>
+        <result property="pgTid" column="pg_tid"/>
+        <result property="cardName" column="card_name"/>
+        <result property="cardNumber" column="card_number"/>
+        <result property="buyerName" column="buyer_name"/>
+        <result property="buyerEmail" column="buyer_email"/>
+        <result property="buyerTel" column="buyer_tel"/>
+        <result property="buyerAddr" column="buyer_addr"/>
+        <result property="buyerPostcode" column="buyer_postcode"/>
+        <result property="status" column="status"/>
+        <result property="paidAt" column="paid_at"/>
+        <result property="failedAt" column="failed_at"/>
+        <result property="cancelledAt" column="cancelled_at"/>
+        <result property="failReason" column="fail_reason"/>
+        <result property="cancelReason" column="cancel_reason"/>
+        <result property="receiptUrl" column="receipt_url"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <!-- ========== payment_history ResultMap ========== -->
+    <resultMap id="paymentHistoryMap" type="com.api.payment.domain.PaymentHistory">
+        <id property="id" column="id"/>
+        <result property="paymentId" column="payment_id"/>
+        <result property="status" column="status"/>
+        <result property="action" column="action"/>
+        <result property="description" column="description"/>
+        <result property="createdDate" column="created_at"/>
+    </resultMap>
+
+    <!-- ========== payment_base 관련 쿼리 ========== -->
+    
+    <!-- 입찰 기본 정보 생성 -->
+    <insert id="insertPaymentBase" parameterType="com.api.payment.domain.PaymentBase" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO payment_base (member_id, item_id, bid_price, created_at)
+        VALUES (#{memberId}, #{itemId}, #{bidPrice}, #{createdAt})
+    </insert>
+
+    <!-- 입찰 기본 정보 조회 (ID) -->
+    <select id="selectPaymentBaseById" parameterType="long" resultMap="paymentBaseMap">
+        SELECT id, member_id, item_id, bid_price, created_at
+        FROM payment_base
+        WHERE id = #{id}
+    </select>
+
+    <!-- 회원과 item에 대한 기존 payment_base 조회 (중복 체크용) -->
+    <select id="selectPaymentBaseByMemberAndItem" resultMap="paymentBaseMap">
+        SELECT id, member_id, item_id, bid_price, created_at
+        FROM payment_base
+        WHERE member_id = #{memberId} AND item_id = #{itemId}
+        LIMIT 1
+    </select>
+
+    <!-- 회원의 입찰 내역 조회 (payment_base 목록) -->
+    <select id="selectPaymentBasesByMemberId" parameterType="string" resultMap="paymentBaseMap">
+        SELECT id, member_id, item_id, bid_price, created_at
+        FROM payment_base
+        WHERE member_id = #{memberId}
+        ORDER BY created_at DESC
+    </select>
+
+    <!-- 입찰 기본 정보 삭제 -->
+    <delete id="deletePaymentBase" parameterType="long">
+        DELETE FROM payment_base
+        WHERE id = #{id}
+    </delete>
+
+    <!-- ========== payment_detail 관련 쿼리 ========== -->
+    
+    <!-- 결제 상세 정보 생성 -->
+    <insert id="insertPaymentDetail" parameterType="com.api.payment.domain.PaymentDetail" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO payment_detail (
+            payment_id, cltr_no, amount, paid_amount, imp_uid, merchant_uid, item_name,
+            payment_method, pg_provider, pg_tid, card_name, card_number,
+            buyer_name, buyer_email, buyer_tel, buyer_addr, buyer_postcode,
+            status, paid_at, failed_at, cancelled_at, fail_reason, cancel_reason, receipt_url,
+            created_at, updated_at
+        )
+        VALUES (
+            #{paymentId}, #{cltrNo}, #{amount}, #{paidAmount}, #{impUid}, #{merchantUid}, #{itemName},
+            #{paymentMethod}, #{pgProvider}, #{pgTid}, #{cardName}, #{cardNumber},
+            #{buyerName}, #{buyerEmail}, #{buyerTel}, #{buyerAddr}, #{buyerPostcode},
+            #{status}, #{paidAt}, #{failedAt}, #{cancelledAt}, #{failReason}, #{cancelReason}, #{receiptUrl},
+            #{createdAt}, #{updatedAt}
+        )
+    </insert>
+
+    <!-- 결제 상세 정보 조회 (ID) -->
+    <select id="selectPaymentDetailById" parameterType="long" resultMap="paymentDetailMap">
+        SELECT id, payment_id, cltr_no, amount, paid_amount, imp_uid, merchant_uid, item_name,
+               payment_method, pg_provider, pg_tid, card_name, card_number,
+               buyer_name, buyer_email, buyer_tel, buyer_addr, buyer_postcode,
+               status, paid_at, failed_at, cancelled_at, fail_reason, cancel_reason, receipt_url,
+               created_at, updated_at
+        FROM payment_detail
+        WHERE id = #{id}
+    </select>
+
+    <!-- 결제 상세 정보 조회 (payment_base.id로) -->
+    <select id="selectPaymentDetailByPaymentId" parameterType="long" resultMap="paymentDetailMap">
+        SELECT id, payment_id, cltr_no, amount, paid_amount, imp_uid, merchant_uid, item_name,
+               payment_method, pg_provider, pg_tid, card_name, card_number,
+               buyer_name, buyer_email, buyer_tel, buyer_addr, buyer_postcode,
+               status, paid_at, failed_at, cancelled_at, fail_reason, cancel_reason, receipt_url,
+               created_at, updated_at
+        FROM payment_detail
+        WHERE payment_id = #{paymentId}
+        LIMIT 1
+    </select>
+
+    <!-- 결제 상세 정보 조회 (merchant_uid) -->
+    <select id="selectPaymentDetailByMerchantUid" parameterType="string" resultMap="paymentDetailMap">
+        SELECT id, payment_id, cltr_no, amount, paid_amount, imp_uid, merchant_uid, item_name,
+               payment_method, pg_provider, pg_tid, card_name, card_number,
+               buyer_name, buyer_email, buyer_tel, buyer_addr, buyer_postcode,
+               status, paid_at, failed_at, cancelled_at, fail_reason, cancel_reason, receipt_url,
+               created_at, updated_at
+        FROM payment_detail
+        WHERE merchant_uid = #{merchantUid}
+        LIMIT 1
+    </select>
+
+    <!-- 결제 상세 정보 조회 (imp_uid) -->
+    <select id="selectPaymentDetailByImpUid" parameterType="string" resultMap="paymentDetailMap">
+        SELECT id, payment_id, cltr_no, amount, paid_amount, imp_uid, merchant_uid, item_name,
+               payment_method, pg_provider, pg_tid, card_name, card_number,
+               buyer_name, buyer_email, buyer_tel, buyer_addr, buyer_postcode,
+               status, paid_at, failed_at, cancelled_at, fail_reason, cancel_reason, receipt_url,
+               created_at, updated_at
+        FROM payment_detail
+        WHERE imp_uid = #{impUid}
+        LIMIT 1
+    </select>
+
+    <!-- 결제 상세 정보 업데이트 -->
+    <update id="updatePaymentDetail" parameterType="com.api.payment.domain.PaymentDetail">
+        UPDATE payment_detail
+        SET payment_id = #{paymentId},
+            cltr_no = #{cltrNo},
+            amount = #{amount},
+            paid_amount = #{paidAmount},
+            imp_uid = #{impUid},
+            merchant_uid = #{merchantUid},
+            item_name = #{itemName},
+            payment_method = #{paymentMethod},
+            pg_provider = #{pgProvider},
+            pg_tid = #{pgTid},
+            card_name = #{cardName},
+            card_number = #{cardNumber},
+            buyer_name = #{buyerName},
+            buyer_email = #{buyerEmail},
+            buyer_tel = #{buyerTel},
+            buyer_addr = #{buyerAddr},
+            buyer_postcode = #{buyerPostcode},
+            status = #{status},
+            paid_at = #{paidAt},
+            failed_at = #{failedAt},
+            cancelled_at = #{cancelledAt},
+            fail_reason = #{failReason},
+            cancel_reason = #{cancelReason},
+            receipt_url = #{receiptUrl},
+            updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <!-- 결제 상태 업데이트 -->
+    <update id="updatePaymentDetailStatus">
+        UPDATE payment_detail
+        SET status = #{status},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <!-- 결제 상세 정보 삭제 -->
+    <delete id="deletePaymentDetail" parameterType="long">
+        DELETE FROM payment_detail
+        WHERE id = #{id}
+    </delete>
+
+    <!-- 회원의 결제 내역 조회 (payment_base와 payment_detail 조인) -->
+    <select id="selectPaymentDetailsByMemberId" parameterType="string" resultMap="paymentDetailMap">
+        SELECT pd.id, pd.payment_id, pd.cltr_no, pd.amount, pd.paid_amount, pd.imp_uid, pd.merchant_uid, pd.item_name,
+               pd.payment_method, pd.pg_provider, pd.pg_tid, pd.card_name, pd.card_number,
+               pd.buyer_name, pd.buyer_email, pd.buyer_tel, pd.buyer_addr, pd.buyer_postcode,
+               pd.status, pd.paid_at, pd.failed_at, pd.cancelled_at, pd.fail_reason, pd.cancel_reason, pd.receipt_url,
+               pd.created_at, pd.updated_at
+        FROM payment_detail pd
+        INNER JOIN payment_base pb ON pd.payment_id = pb.id
+        WHERE pb.member_id = #{memberId}
+        ORDER BY pd.created_at DESC
+    </select>
+
+    <!-- ========== payment_history 관련 쿼리 ========== -->
+    
+    <!-- 결제 히스토리 추가 -->
+    <insert id="insertPaymentHistory" parameterType="com.api.payment.domain.PaymentHistory" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO payment_history (payment_id, status, action, description, created_at)
+        VALUES (#{paymentId}, #{status}, #{action}, #{description}, #{createdDate})
+    </insert>
+
+    <!-- 결제 히스토리 조회 (payment_detail.id로) -->
+    <select id="selectPaymentHistoryByPaymentId" parameterType="long" resultMap="paymentHistoryMap">
+        SELECT id, payment_id, status, action, description, created_at
+        FROM payment_history
+        WHERE payment_id = #{paymentId}
+        ORDER BY created_at DESC
+    </select>
+
+</mapper>
+

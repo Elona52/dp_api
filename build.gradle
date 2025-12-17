@@ -1,0 +1,80 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '3.5.9-SNAPSHOT'
+	id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.example'
+version = '0.0.1-SNAPSHOT'
+description = 'Demo project for Spring Boot'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+}
+
+repositories {
+	mavenCentral()
+	maven { url = 'https://repo.spring.io/snapshot' }
+}
+
+dependencies {
+	// ========== Spring Boot 핵심 의존성 ==========
+	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'  // Thymeleaf 템플릿 엔진 (HTML 렌더링)
+	implementation 'org.springframework.boot:spring-boot-starter-web'  // 웹 애플리케이션 (톰캣, Spring MVC)
+	implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:3.0.5'  // MyBatis ORM (데이터베이스 연동)
+	implementation 'org.springframework.boot:spring-boot-starter-security'  // Spring Security (보안)
+	implementation 'org.springframework.boot:spring-boot-starter-mail'  // 이메일 전송
+	implementation 'org.springframework.boot:spring-boot-starter-cache'  // Spring Cache (캐싱)
+	implementation 'com.github.ben-manes.caffeine:caffeine'  // Caffeine 캐시 (고성능 캐시 라이브러리)
+	
+	// ========== 데이터베이스 드라이버 ==========
+	runtimeOnly 'org.mariadb.jdbc:mariadb-java-client'  // MariaDB 드라이버 (주로 사용)
+	runtimeOnly 'com.oracle.database.jdbc:ojdbc11'  // Oracle 드라이버 (선택)
+	runtimeOnly 'com.h2database:h2'  // H2 인메모리 DB (테스트용)
+	
+	// ========== 개발 도구 ==========
+	compileOnly 'org.projectlombok:lombok'  // Lombok (보일러플레이트 코드 제거)
+	annotationProcessor 'org.projectlombok:lombok'  // Lombok 어노테이션 프로세서
+	developmentOnly 'org.springframework.boot:spring-boot-devtools'  // 개발 도구 (핫 리로드)
+	
+	// ========== 테스트 ==========
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'  // Spring Boot 테스트
+	testImplementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter-test:3.0.5'  // MyBatis 테스트
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'  // JUnit 플랫폼
+	
+	// ========== 유틸리티 ==========
+	implementation 'org.json:json:20230227'  // JSON 처리
+	implementation 'com.fasterxml.jackson.core:jackson-databind'  // Jackson JSON 라이브러리 (REST API)
+	implementation 'jakarta.xml.bind:jakarta.xml.bind-api:4.0.0'  // XML 바인딩 API
+	implementation 'org.glassfish.jaxb:jaxb-runtime:4.0.0'  // JAXB 런타임 (XML 처리)
+	
+	// ========== 템플릿 및 레이아웃 ==========
+	implementation 'nz.net.ultraq.thymeleaf:thymeleaf-layout-dialect:3.3.0'  // Thymeleaf 레이아웃 (템플릿 재사용)
+	
+	// ========== 파일 처리 ==========
+	implementation 'commons-fileupload:commons-fileupload:1.5'  // 파일 업로드
+	implementation 'commons-io:commons-io:2.11.0'  // IO 유틸리티
+	
+	// ========== API 문서화 ==========
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.3.0'  // Swagger/OpenAPI (API 문서 자동 생성)
+	
+	// ========== 결제 (선택) ==========
+	// 아임포트 결제 연동 (필요시 주석 해제)
+	// implementation 'com.github.iamport:iamport-rest-client-java:v1.2.0'
+}
+
+tasks.withType(JavaCompile) {
+    options.compilerArgs += ["-parameters"]
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}

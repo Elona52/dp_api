@@ -1,0 +1,26 @@
+services:
+  # Spring Boot 애플리케이션 (기존 로컬 DB 사용)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: apiproj-app
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # 호스트의 로컬 DB에 연결 (기존 데이터 사용)
+      SPRING_DATASOURCE_URL: jdbc:mariadb://host.docker.internal:3306/allDB
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: 1234
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.mariadb.jdbc.Driver
+      TZ: Asia/Seoul
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # macOS/Windows에서 호스트 접근
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+

@@ -1,0 +1,701 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.api.item.mapper.ItemMapper">
+
+    <resultMap id="itemBasicMap" type="com.api.item.dto.ItemBasic">
+        <id property="plnmNo" column="plnm_no"/>
+        <result property="rnum" column="rnum"/>
+        <result property="address" column="address"/>
+        <result property="appraisalAmountMin" column="appraisal_amount_min"/>
+        <result property="appraisalAmountMax" column="appraisal_amount_max"/>
+        <result property="minBidPriceMin" column="min_bid_price_min"/>
+        <result property="minBidPriceMax" column="min_bid_price_max"/>
+        <result property="orgName" column="org_name"/>
+        <result property="bidStart" column="bid_start"/>
+        <result property="bidEnd" column="bid_end"/>
+        <result property="disposalMethod" column="disposal_method"/>
+        <result property="bidMethod" column="bid_method"/>
+        <result property="bidCount" column="bid_count"/>
+    </resultMap>
+
+    <resultMap id="itemDetailMap" type="com.api.item.dto.ItemDetail" extends="itemBasicMap">
+        <result property="pbctNo" column="pbct_no"/>
+        <result property="orgBaseNo" column="org_base_no"/>
+        <result property="cltrMnmtNo" column="cltr_mnmt_no"/>
+        <result property="nmrAddress" column="nmr_address"/>
+        <result property="roadName" column="road_name"/>
+        <result property="bldNo" column="bld_no"/>
+        <result property="bidStatus" column="bid_status"/>
+        <result property="viewCount" column="view_count"/>
+        <result property="goodsDetail" column="goods_detail"/>
+        <result property="assetCategory" column="asset_category"/>
+        <result property="bidRoundNo" column="bid_round_no"/>
+        <result property="feeRate" column="fee_rate"/>
+    </resultMap>
+
+    <sql id="basicColumns">
+        b.rnum,
+        b.plnm_no,
+        b.address,
+        b.appraisal_amount AS appraisal_amount_min,
+        b.appraisal_amount AS appraisal_amount_max,
+        b.min_bid_price AS min_bid_price_min,
+        b.min_bid_price AS min_bid_price_max,
+        b.org_name,
+        b.bid_start,
+        b.bid_end,
+        b.disposal_method,
+        b.bid_method,
+        b.bid_count
+    </sql>
+
+    <sql id="detailColumns">
+        d.pbct_no,
+        d.org_base_no,
+        d.cltr_mnmt_no,
+        d.nmr_address,
+        d.road_name,
+        d.bld_no,
+        d.bid_status,
+        d.view_count,
+        d.goods_detail,
+        d.asset_category,
+        d.bid_round_no,
+        d.fee_rate
+    </sql>
+
+    <select id="findAllBasic" resultMap="itemBasicMap">
+        SELECT
+            b.rnum,
+            b.plnm_no,
+            b.address,
+            b.appraisal_amount AS appraisal_amount_min,
+            b.appraisal_amount AS appraisal_amount_max,
+            b.min_bid_price AS min_bid_price_min,
+            b.min_bid_price AS min_bid_price_max,
+            b.org_name,
+            b.bid_start,
+            b.bid_end,
+            b.disposal_method,
+            b.bid_method,
+            b.bid_count
+        FROM item_basic b
+        INNER JOIN (
+            SELECT 
+                plnm_no,
+                MAX(bid_start) as max_bid_start
+            FROM item_basic
+            GROUP BY plnm_no
+        ) latest ON b.plnm_no = latest.plnm_no 
+            AND b.bid_start = latest.max_bid_start
+        ORDER BY b.bid_end ASC, b.plnm_no DESC
+    </select>
+
+    <select id="findNewItems" resultMap="itemBasicMap">
+        SELECT
+            b.rnum,
+            b.plnm_no,
+            b.address,
+            b.appraisal_amount AS appraisal_amount_min,
+            b.appraisal_amount AS appraisal_amount_max,
+            b.min_bid_price AS min_bid_price_min,
+            b.min_bid_price AS min_bid_price_max,
+            b.org_name,
+            b.bid_start,
+            b.bid_end,
+            b.disposal_method,
+            b.bid_method,
+            b.bid_count
+        FROM item_basic b
+        INNER JOIN (
+            SELECT 
+                plnm_no,
+                MAX(bid_start) as max_bid_start
+            FROM item_basic
+            WHERE bid_start >= DATE_SUB(NOW(), INTERVAL 14 DAY)
+            GROUP BY plnm_no
+        ) latest ON b.plnm_no = latest.plnm_no 
+            AND b.bid_start = latest.max_bid_start
+        WHERE b.bid_start >= DATE_SUB(NOW(), INTERVAL 14 DAY)
+        ORDER BY b.bid_start DESC
+        LIMIT 50
+    </select>
+
+    <select id="findDiscountItems" resultMap="itemBasicMap">
+        SELECT
+            b.rnum,
+            b.plnm_no,
+            b.address,
+            b.appraisal_amount AS appraisal_amount_min,
+            b.appraisal_amount AS appraisal_amount_max,
+            b.min_bid_price AS min_bid_price_min,
+            b.min_bid_price AS min_bid_price_max,
+            b.org_name,
+            b.bid_start,
+            b.bid_end,
+            b.disposal_method,
+            b.bid_method,
+            b.bid_count
+        FROM item_basic b
+        INNER JOIN (
+            SELECT 
+                plnm_no,
+                MAX(bid_start) as max_bid_start
+            FROM item_basic
+            WHERE appraisal_amount IS NOT NULL
+              AND min_bid_price IS NOT NULL
+              AND <![CDATA[min_bid_price <= appraisal_amount * 0.6]]>
+            GROUP BY plnm_no
+        ) latest ON b.plnm_no = latest.plnm_no 
+            AND b.bid_start = latest.max_bid_start
+        WHERE b.appraisal_amount IS NOT NULL
+          AND b.min_bid_price IS NOT NULL
+          AND <![CDATA[b.min_bid_price <= b.appraisal_amount * 0.6]]>
+        ORDER BY <![CDATA[(b.min_bid_price / NULLIF(b.appraisal_amount, 0))]]> ASC
+        LIMIT 50
+    </select>
+
+    <select id="findDetail" parameterType="long" resultMap="itemDetailMap">
+        SELECT
+            <include refid="basicColumns"/>,
+            <include refid="detailColumns"/>
+        FROM item_basic b
+        INNER JOIN item_detail d ON d.plnm_no = b.plnm_no
+        WHERE b.plnm_no = #{plnmNo}
+    </select>
+
+    <select id="findDetailByCltrMnmtNo" parameterType="string" resultMap="itemDetailMap">
+        SELECT
+            <include refid="basicColumns"/>,
+            <include refid="detailColumns"/>
+        FROM item_basic b
+        INNER JOIN item_detail d ON d.plnm_no = b.plnm_no
+        INNER JOIN (
+            SELECT 
+                plnm_no,
+                MAX(bid_start) as max_bid_start
+            FROM item_basic
+            GROUP BY plnm_no
+        ) latest ON b.plnm_no = latest.plnm_no 
+            AND b.bid_start = latest.max_bid_start
+        WHERE d.cltr_mnmt_no = #{cltrMnmtNo}
+        ORDER BY b.bid_start DESC
+        LIMIT 1
+    </select>
+
+    <insert id="upsertItemBasic" parameterType="com.api.item.dto.ItemBasic">
+        INSERT INTO item_basic (
+            rnum,
+            plnm_no,
+            address,
+            appraisal_amount,
+            min_bid_price,
+            org_name,
+            bid_start,
+            bid_end,
+            disposal_method,
+            bid_method,
+            bid_count
+        ) VALUES (
+            #{rnum},
+            #{plnmNo},
+            #{address},
+            COALESCE(#{appraisalAmountMax}, #{appraisalAmountMin}),
+            COALESCE(#{minBidPriceMax}, #{minBidPriceMin}),
+            #{orgName},
+            #{bidStart},
+            #{bidEnd},
+            #{disposalMethod},
+            #{bidMethod},
+            1
+        )
+        ON DUPLICATE KEY UPDATE
+            rnum = VALUES(rnum),
+            address = VALUES(address),
+            appraisal_amount = VALUES(appraisal_amount),
+            min_bid_price = VALUES(min_bid_price),
+            org_name = VALUES(org_name),
+            bid_start = VALUES(bid_start),
+            bid_end = VALUES(bid_end),
+            disposal_method = VALUES(disposal_method),
+            bid_method = VALUES(bid_method),
+            bid_count = bid_count + 1
+    </insert>
+
+    <insert id="upsertItemDetail" parameterType="com.api.item.dto.ItemDetail">
+        INSERT INTO item_detail (
+            plnm_no,
+            pbct_no,
+            org_base_no,
+            cltr_mnmt_no,
+            nmr_address,
+            road_name,
+            bld_no,
+            bid_status,
+            view_count,
+            goods_detail,
+            asset_category,
+            bid_round_no,
+            fee_rate
+        ) VALUES (
+            #{plnmNo},
+            #{pbctNo},
+            #{orgBaseNo},
+            #{cltrMnmtNo},
+            #{nmrAddress},
+            #{roadName},
+            #{bldNo},
+            #{bidStatus},
+            #{viewCount},
+            #{goodsDetail},
+            #{assetCategory},
+            #{bidRoundNo},
+            #{feeRate}
+        )
+        ON DUPLICATE KEY UPDATE
+            pbct_no = VALUES(pbct_no),
+            org_base_no = VALUES(org_base_no),
+            cltr_mnmt_no = VALUES(cltr_mnmt_no),
+            nmr_address = VALUES(nmr_address),
+            road_name = VALUES(road_name),
+            bld_no = VALUES(bld_no),
+            bid_status = VALUES(bid_status),
+            view_count = VALUES(view_count),
+            goods_detail = VALUES(goods_detail),
+            asset_category = VALUES(asset_category),
+            bid_round_no = VALUES(bid_round_no),
+            fee_rate = VALUES(fee_rate)
+    </insert>
+
+    <!-- 삭제: plnmNo로 삭제 (item_detail 먼저 삭제 후 item_basic 삭제) -->
+    <delete id="deleteItemByPlnmNo" parameterType="long">
+        DELETE FROM item_detail WHERE plnm_no = #{plnmNo}
+    </delete>
+    
+    <!-- 삭제: plnmNo로 item_basic 삭제 -->
+    <delete id="deleteItemBasicByPlnmNo" parameterType="long">
+        DELETE FROM item_basic WHERE plnm_no = #{plnmNo}
+    </delete>
+
+    <!-- 삭제: 서울특별시가 아닌 데이터 삭제 -->
+    <delete id="deleteNonSeoulItems">
+        DELETE d, b
+        FROM item_detail d
+        INNER JOIN item_basic b ON d.plnm_no = b.plnm_no
+        WHERE d.nmr_address NOT LIKE '서울특별시%'
+          AND d.road_name NOT LIKE '서울특별시%'
+          AND b.address NOT LIKE '서울특별시%'
+    </delete>
+
+    <!-- 삭제: 전체 삭제 -->
+    <delete id="deleteAllItems">
+        DELETE FROM item_detail;
+        DELETE FROM item_basic
+    </delete>
+
+    <!-- 삭제: 신물건 삭제 (14일 이내 데이터) -->
+    <delete id="deleteNewItems">
+        DELETE d, b
+        FROM item_detail d
+        INNER JOIN item_basic b ON d.plnm_no = b.plnm_no
+        WHERE b.bid_start >= DATE_SUB(NOW(), INTERVAL 14 DAY)
+    </delete>
+
+    <!-- 삭제: 감가 50% 이상 물건 삭제 -->
+    <delete id="deleteDiscountItems">
+        DELETE d, b
+        FROM item_detail d
+        INNER JOIN item_basic b ON d.plnm_no = b.plnm_no
+        WHERE b.appraisal_amount IS NOT NULL
+          AND b.min_bid_price IS NOT NULL
+          AND <![CDATA[b.min_bid_price <= b.appraisal_amount * 0.5]]>
+    </delete>
+
+    <!-- 삭제: 서울특별시 전체 물건 삭제 (용도별통합물건) -->
+    <delete id="deleteUsageItems">
+        DELETE d, b
+        FROM item_detail d
+        INNER JOIN item_basic b ON d.plnm_no = b.plnm_no
+        WHERE (d.nmr_address LIKE '서울특별시%' 
+           OR d.road_name LIKE '서울특별시%' 
+           OR b.address LIKE '서울특별시%')
+    </delete>
+
+    <!-- 조회: 서울특별시 물건 조회 (페이징) - 같은 물건번호는 최신 정보만 표시 -->
+    <select id="findItemsSeoul" resultMap="itemDetailMap">
+        SELECT
+            b.rnum,
+            b.plnm_no,
+            b.address,
+            b.appraisal_amount AS appraisal_amount_min,
+            b.appraisal_amount AS appraisal_amount_max,
+            b.min_bid_price AS min_bid_price_min,
+            b.min_bid_price AS min_bid_price_max,
+            b.org_name,
+            b.bid_start,
+            b.bid_end,
+            b.disposal_method,
+            b.bid_method,
+            b.bid_count,
+            d.pbct_no,
+            d.org_base_no,
+            d.cltr_mnmt_no,
+            d.nmr_address,
+            d.road_name,
+            d.bld_no,
+            d.bid_status,
+            d.view_count,
+            d.goods_detail,
+            d.asset_category,
+            d.bid_round_no,
+            d.fee_rate
+        FROM item_basic b
+        INNER JOIN item_detail d ON d.plnm_no = b.plnm_no
+        INNER JOIN (
+            SELECT 
+                plnm_no,
+                MAX(bid_start) as max_bid_start
+            FROM item_basic
+            GROUP BY plnm_no
+        ) latest ON b.plnm_no = latest.plnm_no 
+            AND b.bid_start = latest.max_bid_start
+        WHERE (d.nmr_address LIKE '서울특별시%' 
+           OR d.road_name LIKE '서울특별시%' 
+           OR b.address LIKE '서울특별시%')
+        ORDER BY b.bid_end ASC, b.plnm_no DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+    
+    <!-- 조회: 서울특별시 물건 총 개수 (중복 제거) -->
+    <select id="countItemsSeoul" resultType="int">
+        SELECT COUNT(DISTINCT b.plnm_no)
+        FROM item_basic b
+        INNER JOIN item_detail d ON d.plnm_no = b.plnm_no
+        WHERE (d.nmr_address LIKE '서울특별시%' 
+           OR d.road_name LIKE '서울특별시%' 
+           OR b.address LIKE '서울특별시%')
+    </select>
+    
+    <!-- 조회: 전체 물건 조회 (페이징) - 같은 물건번호는 최신 정보만 표시 -->
+    <select id="findAllItems" resultMap="itemDetailMap">
+        SELECT
+            b.rnum,
+            b.plnm_no,
+            b.address,
+            b.appraisal_amount AS appraisal_amount_min,
+            b.appraisal_amount AS appraisal_amount_max,
+            b.min_bid_price AS min_bid_price_min,
+            b.min_bid_price AS min_bid_price_max,
+            b.org_name,
+            b.bid_start,
+            b.bid_end,
+            b.disposal_method,
+            b.bid_method,
+            b.bid_count,
+            d.pbct_no,
+            d.org_base_no,
+            d.cltr_mnmt_no,
+            d.nmr_address,
+            d.road_name,
+            d.bld_no,
+            d.bid_status,
+            d.view_count,
+            d.goods_detail,
+            d.asset_category,
+            d.bid_round_no,
+            d.fee_rate
+        FROM item_basic b
+        INNER JOIN item_detail d ON d.plnm_no = b.plnm_no
+        INNER JOIN (
+            SELECT 
+                plnm_no,
+                MAX(bid_start) as max_bid_start
+            FROM item_basic
+            GROUP BY plnm_no
+        ) latest ON b.plnm_no = latest.plnm_no 
+            AND b.bid_start = latest.max_bid_start
+        <where>
+            <if test="category != null and category != '' and category != 'all'">
+                <!-- DB의 실제 asset_category 값과 정확히 일치하도록 필터링 -->
+                AND d.asset_category = #{category}
+            </if>
+        </where>
+        ORDER BY b.bid_end ASC, b.plnm_no DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+    
+    <!-- 조회: 전체 물건 총 개수 (중복 제거) -->
+    <select id="countAllItems" resultType="int">
+        SELECT COUNT(DISTINCT b.plnm_no)
+        FROM item_basic b
+        INNER JOIN item_detail d ON d.plnm_no = b.plnm_no
+        INNER JOIN (
+            SELECT 
+                plnm_no,
+                MAX(bid_start) as max_bid_start
+            FROM item_basic
+            GROUP BY plnm_no
+        ) latest ON b.plnm_no = latest.plnm_no 
+            AND b.bid_start = latest.max_bid_start
+        <where>
+            <if test="category != null and category != '' and category != 'all'">
+                <choose>
+                    <when test="category == '부동산 / 주거용건물' or category == '주거용건물'">
+                        AND ((d.asset_category IS NOT NULL AND (d.asset_category LIKE '%주거%' OR d.asset_category LIKE '%아파트%' OR d.asset_category LIKE '%주택%'))
+                            OR (b.address IS NOT NULL AND (b.address LIKE '%주거%' OR b.address LIKE '%아파트%' OR b.address LIKE '%주택%'))
+                            OR (d.nmr_address IS NOT NULL AND (d.nmr_address LIKE '%주거%' OR d.nmr_address LIKE '%아파트%' OR d.nmr_address LIKE '%주택%')))
+                    </when>
+                    <when test="category == '부동산 / 자동차' or category == '자동차'">
+                        AND ((d.asset_category IS NOT NULL AND (d.asset_category LIKE '%자동차%' OR d.asset_category LIKE '%차량%'))
+                            OR (b.address IS NOT NULL AND (b.address LIKE '%자동차%' OR b.address LIKE '%차량%'))
+                            OR (d.nmr_address IS NOT NULL AND (d.nmr_address LIKE '%자동차%' OR d.nmr_address LIKE '%차량%')))
+                    </when>
+                    <when test="category == '부동산 / 상가용건물' or category == '상가용및업무용건물' or category == '상가용건물'">
+                        AND ((d.asset_category IS NOT NULL AND (d.asset_category LIKE '%상가%' OR d.asset_category LIKE '%상점%' OR d.asset_category LIKE '%업무용%'))
+                            OR (b.address IS NOT NULL AND (b.address LIKE '%상가%' OR b.address LIKE '%상점%' OR b.address LIKE '%업무용%'))
+                            OR (d.nmr_address IS NOT NULL AND (d.nmr_address LIKE '%상가%' OR d.nmr_address LIKE '%상점%' OR d.nmr_address LIKE '%업무용%')))
+                    </when>
+                    <when test="category == '부동산 / 토지' or category == '토지'">
+                        AND ((d.asset_category IS NOT NULL AND d.asset_category LIKE '%토지%')
+                            OR (b.address IS NOT NULL AND b.address LIKE '%토지%')
+                            OR (d.nmr_address IS NOT NULL AND d.nmr_address LIKE '%토지%'))
+                    </when>
+                    <when test="category == '부동산 / 산업용건물' or category == '산업용및기타특수용건물' or category == '산업용건물'">
+                        AND ((d.asset_category IS NOT NULL AND (d.asset_category LIKE '%산업%' OR d.asset_category LIKE '%공장%'))
+                            OR (b.address IS NOT NULL AND (b.address LIKE '%산업%' OR b.address LIKE '%공장%'))
+                            OR (d.nmr_address IS NOT NULL AND (d.nmr_address LIKE '%산업%' OR d.nmr_address LIKE '%공장%')))
+                    </when>
+                    <when test="category == '부동산 / 임야' or category == '임야'">
+                        AND ((d.asset_category IS NOT NULL AND (d.asset_category LIKE '%임야%' OR d.asset_category LIKE '%산%'))
+                            OR (b.address IS NOT NULL AND (b.address LIKE '%임야%' OR b.address LIKE '%산%'))
+                            OR (d.nmr_address IS NOT NULL AND (d.nmr_address LIKE '%임야%' OR d.nmr_address LIKE '%산%')))
+                    </when>
+                    <when test="category == '용도복합용건물'">
+                        AND (d.asset_category IS NOT NULL AND d.asset_category LIKE '%용도복합%')
+                    </when>
+                    <when test="category == '기계기구' or category == '동산 / 기계기구'">
+                        AND (d.asset_category IS NOT NULL AND (d.asset_category LIKE '%기계%' OR d.asset_category LIKE '%기구%'))
+                    </when>
+                    <when test="category == '부동산 / 용도복합용건물' or category == '용도복합용건물'">
+                        AND (d.asset_category IS NOT NULL AND d.asset_category LIKE '%용도복합%')
+                    </when>
+                    <when test="category == '동산 / 유가증권'">
+                        AND (d.asset_category IS NOT NULL AND d.asset_category LIKE '%유가증권%')
+                    </when>
+                    <when test="category == '동산 / 컴퓨터/전기/통신'">
+                        AND (d.asset_category IS NOT NULL AND (d.asset_category LIKE '%컴퓨터%' OR d.asset_category LIKE '%전기%' OR d.asset_category LIKE '%통신%'))
+                    </when>
+                    <when test="category == '동산 / 의료/측정장비'">
+                        AND (d.asset_category IS NOT NULL AND (d.asset_category LIKE '%의료%' OR d.asset_category LIKE '%측정%' OR d.asset_category LIKE '%실험%'))
+                    </when>
+                    <when test="category == '기타 / 미분류' or category == '기타 / 기타'">
+                        AND (d.asset_category IS NOT NULL AND (d.asset_category LIKE '%미분류%' OR d.asset_category LIKE '%기타%'))
+                    </when>
+                    <otherwise>
+                        AND d.asset_category = #{category}
+                    </otherwise>
+                </choose>
+            </if>
+        </where>
+    </select>
+    
+    <!-- 조회: 신규 물건 조회 (페이징) - 14일 이내, 같은 물건번호는 최신 정보만 표시 -->
+    <select id="findNewItemsDetail" resultMap="itemDetailMap">
+        SELECT
+            b.rnum,
+            b.plnm_no,
+            b.address,
+            b.appraisal_amount AS appraisal_amount_min,
+            b.appraisal_amount AS appraisal_amount_max,
+            b.min_bid_price AS min_bid_price_min,
+            b.min_bid_price AS min_bid_price_max,
+            b.org_name,
+            b.bid_start,
+            b.bid_end,
+            b.disposal_method,
+            b.bid_method,
+            b.bid_count,
+            d.pbct_no,
+            d.org_base_no,
+            d.cltr_mnmt_no,
+            d.nmr_address,
+            d.road_name,
+            d.bld_no,
+            d.bid_status,
+            d.view_count,
+            d.goods_detail,
+            d.asset_category,
+            d.bid_round_no,
+            d.fee_rate
+        FROM item_basic b
+        INNER JOIN item_detail d ON d.plnm_no = b.plnm_no
+        INNER JOIN (
+            SELECT 
+                plnm_no,
+                MAX(bid_start) as max_bid_start
+            FROM item_basic
+            WHERE bid_start >= DATE_SUB(NOW(), INTERVAL 14 DAY)
+            GROUP BY plnm_no
+        ) latest ON b.plnm_no = latest.plnm_no 
+            AND b.bid_start = latest.max_bid_start
+        WHERE b.bid_start >= DATE_SUB(NOW(), INTERVAL 14 DAY)
+        ORDER BY b.bid_start DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+    
+    <!-- 조회: 신규 물건 총 개수 (14일 이내, 중복 제거) -->
+    <select id="countNewItems" resultType="int">
+        SELECT COUNT(DISTINCT b.plnm_no)
+        FROM item_basic b
+        INNER JOIN item_detail d ON d.plnm_no = b.plnm_no
+        WHERE b.bid_start >= DATE_SUB(NOW(), INTERVAL 14 DAY)
+    </select>
+    
+    <!-- 조회: 감가 50% 이상 물건 조회 (페이징) - ItemDetail 반환 -->
+    <select id="findDiscountItemsDetail" resultMap="itemDetailMap">
+        SELECT
+            b.rnum,
+            b.plnm_no,
+            b.address,
+            b.appraisal_amount AS appraisal_amount_min,
+            b.appraisal_amount AS appraisal_amount_max,
+            b.min_bid_price AS min_bid_price_min,
+            b.min_bid_price AS min_bid_price_max,
+            b.org_name,
+            b.bid_start,
+            b.bid_end,
+            b.disposal_method,
+            b.bid_method,
+            b.bid_count,
+            d.pbct_no,
+            d.org_base_no,
+            d.cltr_mnmt_no,
+            d.nmr_address,
+            d.road_name,
+            d.bld_no,
+            d.bid_status,
+            d.view_count,
+            d.goods_detail,
+            d.asset_category,
+            d.bid_round_no,
+            d.fee_rate
+        FROM item_basic b
+        INNER JOIN item_detail d ON d.plnm_no = b.plnm_no
+        INNER JOIN (
+            SELECT 
+                plnm_no,
+                MAX(bid_start) as max_bid_start
+            FROM item_basic
+            WHERE appraisal_amount IS NOT NULL
+              AND min_bid_price IS NOT NULL
+              AND <![CDATA[min_bid_price <= appraisal_amount * 0.6]]>
+            GROUP BY plnm_no
+        ) latest ON b.plnm_no = latest.plnm_no 
+            AND b.bid_start = latest.max_bid_start
+        WHERE b.appraisal_amount IS NOT NULL
+          AND b.min_bid_price IS NOT NULL
+          AND <![CDATA[b.min_bid_price <= b.appraisal_amount * 0.6]]>
+        ORDER BY <![CDATA[(b.min_bid_price / NULLIF(b.appraisal_amount, 0))]]> ASC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+    
+    <!-- 조회: 감가 50% 이상 물건 총 개수 (중복 제거) -->
+    <select id="countDiscountItems" resultType="int">
+        SELECT COUNT(DISTINCT b.plnm_no)
+        FROM item_basic b
+        INNER JOIN item_detail d ON d.plnm_no = b.plnm_no
+        WHERE b.appraisal_amount IS NOT NULL
+          AND b.min_bid_price IS NOT NULL
+          AND <![CDATA[b.min_bid_price <= b.appraisal_amount * 0.6]]>
+    </select>
+    
+    <!-- 삭제: ID(plnmNo)로 삭제 -->
+    <delete id="deleteItemById" parameterType="long">
+        DELETE d, b
+        FROM item_detail d
+        INNER JOIN item_basic b ON d.plnm_no = b.plnm_no
+        WHERE b.plnm_no = #{id}
+    </delete>
+    
+    <!-- 삭제: 물건번호(cltrMnmtNo)로 삭제 -->
+    <delete id="deleteItemByCltrNo" parameterType="string">
+        DELETE d, b
+        FROM item_detail d
+        INNER JOIN item_basic b ON d.plnm_no = b.plnm_no
+        WHERE d.cltr_mnmt_no = #{cltrNo}
+    </delete>
+
+    <!-- 조회: 오늘 마감하는 물건 조회 (경매일정용) -->
+    <select id="findTodayClosingItems" resultMap="itemDetailMap">
+        SELECT
+            b.rnum,
+            b.plnm_no,
+            b.address,
+            b.appraisal_amount AS appraisal_amount_min,
+            b.appraisal_amount AS appraisal_amount_max,
+            b.min_bid_price AS min_bid_price_min,
+            b.min_bid_price AS min_bid_price_max,
+            b.org_name,
+            b.bid_start,
+            b.bid_end,
+            b.disposal_method,
+            b.bid_method,
+            b.bid_count,
+            d.pbct_no,
+            d.org_base_no,
+            d.cltr_mnmt_no,
+            d.nmr_address,
+            d.road_name,
+            d.bld_no,
+            d.bid_status,
+            d.view_count,
+            d.goods_detail,
+            d.asset_category,
+            d.bid_round_no,
+            d.fee_rate
+        FROM item_basic b
+        INNER JOIN item_detail d ON d.plnm_no = b.plnm_no
+        INNER JOIN (
+            SELECT 
+                plnm_no,
+                MAX(bid_start) as max_bid_start
+            FROM item_basic
+            WHERE DATE(bid_end) = CURDATE()
+            GROUP BY plnm_no
+        ) latest ON b.plnm_no = latest.plnm_no 
+            AND b.bid_start = latest.max_bid_start
+        WHERE DATE(b.bid_end) = CURDATE()
+        ORDER BY b.bid_end ASC, b.plnm_no DESC
+        LIMIT #{limit}
+    </select>
+    
+    <!-- 조회: 카테고리별 통계 (asset_category 기반) - DB 실제 값 사용, 기타 제외, 최대 12개 -->
+    <select id="findCategoryStats" resultType="map">
+        SELECT 
+            d.asset_category AS category,
+            COUNT(DISTINCT b.plnm_no) AS count
+        FROM item_basic b
+        INNER JOIN item_detail d ON d.plnm_no = b.plnm_no
+        INNER JOIN (
+            SELECT 
+                plnm_no,
+                MAX(bid_start) as max_bid_start
+            FROM item_basic
+            GROUP BY plnm_no
+        ) latest ON b.plnm_no = latest.plnm_no 
+            AND b.bid_start = latest.max_bid_start
+        WHERE b.plnm_no IS NOT NULL
+            AND d.asset_category IS NOT NULL
+            AND d.asset_category != ''
+            AND d.asset_category NOT LIKE '%기타%'
+            AND d.asset_category NOT LIKE '%미분류%'
+        GROUP BY d.asset_category
+        HAVING count > 0
+        ORDER BY count DESC
+        LIMIT 12
+    </select>
+
+</mapper>
+

@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.api.favorite.mapper.FavoriteMapper">
+
+    <!-- Favorite ResultMap -->
+    <resultMap id="favoriteMap" type="com.api.favorite.domain.Favorite">
+        <id property="favoriteId" column="favorite_id"/>
+        <result property="userId" column="member_id"/>
+        <result property="itemId" column="item_plnm_no"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <!-- PriceAlert ResultMap -->
+    <resultMap id="priceAlertMap" type="com.api.favorite.domain.PriceAlert">
+        <id property="id" column="id"/>
+        <result property="favoriteId" column="favorite_id"/>
+        <result property="memberId" column="member_id"/>
+        <result property="itemPlnmNo" column="item_plnm_no"/>
+        <result property="previousPrice" column="previous_price"/>
+        <result property="newPrice" column="new_price"/>
+        <result property="alertSent" column="alert_sent"/>
+        <result property="sentDate" column="sent_date"/>
+        <result property="createdDate" column="created_date"/>
+    </resultMap>
+
+    <!-- 즐겨찾기 추가 -->
+    <insert id="insertFavorite" parameterType="com.api.favorite.domain.Favorite" 
+            useGeneratedKeys="true" keyProperty="favoriteId" keyColumn="favorite_id">
+        INSERT INTO favorite (
+            member_id,
+            item_plnm_no,
+            created_at
+        ) VALUES (
+            #{userId},
+            #{itemId},
+            #{createdAt, jdbcType=TIMESTAMP}
+        )
+    </insert>
+
+    <!-- 즐겨찾기 삭제 -->
+    <delete id="deleteFavorite" parameterType="long">
+        DELETE FROM favorite
+        WHERE favorite_id = #{id}
+    </delete>
+
+    <!-- ID로 즐겨찾기 조회 -->
+    <select id="getFavoriteById" parameterType="long" resultMap="favoriteMap">
+        SELECT 
+            favorite_id,
+            member_id,
+            item_plnm_no,
+            created_at
+        FROM favorite
+        WHERE favorite_id = #{id}
+    </select>
+
+    <!-- 특정 회원의 즐겨찾기 목록 조회 -->
+    <select id="getFavoritesByMemberId" parameterType="String" resultMap="favoriteMap">
+        SELECT 
+            favorite_id,
+            member_id,
+            item_plnm_no,
+            created_at
+        FROM favorite
+        WHERE member_id = #{memberId}
+        ORDER BY created_at DESC
+    </select>
+
+    <!-- 특정 회원의 특정 물건 즐겨찾기 조회 -->
+    <select id="getFavoriteByMemberAndItem" resultMap="favoriteMap">
+        SELECT 
+            favorite_id,
+            member_id,
+            item_plnm_no,
+            created_at
+        FROM favorite
+        WHERE member_id = #{memberId}
+          AND item_plnm_no = #{itemId}
+        LIMIT 1
+    </select>
+
+    <!-- itemId로 즐겨찾기 조회 (getFavoriteByMemberAndItemId는 getFavoriteByMemberAndItem과 동일) -->
+    <select id="getFavoriteByMemberAndItemId" resultMap="favoriteMap">
+        SELECT 
+            favorite_id,
+            member_id,
+            item_plnm_no,
+            created_at
+        FROM favorite
+        WHERE member_id = #{memberId}
+          AND item_plnm_no = #{itemId}
+        LIMIT 1
+    </select>
+
+    <!-- 알림이 활성화된 모든 즐겨찾기 조회 (현재는 모든 즐겨찾기 반환, 추후 알림 활성화 컬럼 추가 시 수정) -->
+    <select id="getActiveAlertFavorites" resultMap="favoriteMap">
+        SELECT 
+            favorite_id,
+            member_id,
+            item_plnm_no,
+            created_at
+        FROM favorite
+        ORDER BY created_at DESC
+    </select>
+
+    <!-- 가격 알림 히스토리 추가 -->
+    <insert id="insertPriceAlert" parameterType="com.api.favorite.domain.PriceAlert"
+            useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO PriceAlert (
+            favorite_id,
+            member_id,
+            item_plnm_no,
+            previous_price,
+            new_price,
+            alert_sent,
+            sent_date,
+            created_date
+        ) VALUES (
+            #{favoriteId},
+            #{memberId},
+            #{itemPlnmNo},
+            #{previousPrice},
+            #{newPrice},
+            #{alertSent, jdbcType=TINYINT},
+            #{sentDate, jdbcType=TIMESTAMP},
+            #{createdDate, jdbcType=TIMESTAMP}
+        )
+    </insert>
+
+    <!-- 특정 회원의 가격 알림 히스토리 조회 -->
+    <select id="getPriceAlertsByMemberId" parameterType="String" resultMap="priceAlertMap">
+        SELECT 
+            id,
+            favorite_id,
+            member_id,
+            item_plnm_no,
+            previous_price,
+            new_price,
+            alert_sent,
+            sent_date,
+            created_date
+        FROM PriceAlert
+        WHERE member_id = #{memberId}
+        ORDER BY created_date DESC
+    </select>
+
+    <!-- 최근 알림 조회 (중복 알림 방지용) -->
+    <select id="getLastPriceAlertByFavoriteId" parameterType="long" resultMap="priceAlertMap">
+        SELECT 
+            id,
+            favorite_id,
+            member_id,
+            item_plnm_no,
+            previous_price,
+            new_price,
+            alert_sent,
+            sent_date,
+            created_date
+        FROM PriceAlert
+        WHERE favorite_id = #{favoriteId}
+        ORDER BY created_date DESC
+        LIMIT 1
+    </select>
+
+</mapper>
+
